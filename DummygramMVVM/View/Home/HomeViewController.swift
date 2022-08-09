@@ -10,13 +10,6 @@ import UIKit
 final class HomeViewController: UITableViewController {
     
     private var viewModel = HomeViewModel()
-    private var loadingIndicator: UIActivityIndicatorView = {
-        let indicator = UIActivityIndicatorView()
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.hidesWhenStopped = true
-        indicator.center = CGPoint(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2)
-        return indicator
-    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,57 +18,90 @@ final class HomeViewController: UITableViewController {
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return viewModel.posts.count
+        if viewModel.isLoadedPosts {
+            return viewModel.posts.count
+        } else {
+            return 1
+        }
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: "\(HomeTableViewCell.self)", for: indexPath) as? HomeTableViewCell else { return UITableViewCell() }
         let row = indexPath.row
-        let cellViewModel = viewModel.homeCellViewModel[row]
-        cell.viewModel = cellViewModel
-        cellViewModel.likeTapped = { [weak self] liked in
-            guard let self = self else { return }
-            self.handleCellLikeButtonTap(for: cell, liked: liked)
+        if viewModel.isLoadedPosts {
+            return createPostCell(for: row, indexPath: indexPath)
+        } else {
+            return createLoadingCell(for: indexPath)
         }
-        return cell
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let row = indexPath.row
-        let post = viewModel.posts[row]
-        goToPostDetail(post: post)
+        if viewModel.isLoadedPosts {
+            let row = indexPath.row
+            let post = viewModel.posts[row]
+            let postViewModel = viewModel.homeCellViewModel[row]
+            goToPostDetail(post: post, postViewModel: postViewModel)
+        }
     }
     
     private func setupTableView() {
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "\(UITableViewCell.self)")
-        tableView.register(HomeTableViewCell.self, forCellReuseIdentifier: "\(HomeTableViewCell.self)")
+        tableView.register(LoadingTableViewCell.self, forCellReuseIdentifier: "\(LoadingTableViewCell.self)")
+        tableView.register(PostTableViewCell.self, forCellReuseIdentifier: "\(PostTableViewCell.self)")
         tableView.separatorStyle = .none
         navigationItem.title = "Posts"
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationController?.navigationBar.useDGLargeTitle()
+        navigationController?.navigationItem.backBarButtonItem?.setTitleTextAttributes([.font : UIFont(name: "CircularStd-Book", size: 18)!], for: .normal)
+        
+        let clearCacheButton = UIBarButtonItem(image: UIImage(systemName: "xmark.bin"), style: .plain, target: self, action: #selector(clearCache))
+        navigationItem.leftBarButtonItem = clearCacheButton
     }
     
     private func initializeViewModel() {
-        loadingIndicator.startAnimating()
         viewModel.initViewModel()
         viewModel.reloadTableView = { [weak self] in
             guard let self = self else { return }
             self.tableView.reloadData()
-            self.loadingIndicator.stopAnimating()
+        }
+        viewModel.pushUserDetailController = { [weak self] user, userViewModel in
+            guard let self = self else { return }
+            let viewController = UserDetailViewController(viewModel: userViewModel)
+            viewController.navigationItem.title = user.firstName.lowercased() + user.lastName.lowercased()
+            self.navigationController?.pushViewController(viewController, animated: true)
         }
     }
 
-    private func goToPostDetail(post: DGPostResponse) {
-        let viewController = PostDetailViewController(post: post)
+    private func goToPostDetail(post: DGPostResponse, postViewModel: PostCellViewModel) {
+        let viewController = PostDetailViewController(post: post, postViewModel: postViewModel)
         navigationController?.pushViewController(viewController, animated: true)
     }
     
-    private func handleCellLikeButtonTap(for cell: HomeTableViewCell, liked: Bool) {
-        if liked {
-            cell.likeButton.image = UIImage(systemName: "heart.fill")?.withTintColor(.systemRed, renderingMode: .alwaysOriginal)
-        } else {
-            cell.likeButton.image = UIImage(systemName: "heart")?.withTintColor(.label, renderingMode: .alwaysOriginal)
+    private func createLoadingCell(for indexPath: IndexPath) -> UITableViewCell {
+        guard let cell = tableView.dequeueReusableCell(withIdentifier: "\(LoadingTableViewCell.self)", for: indexPath) as? LoadingTableViewCell else { return UITableViewCell() }
+        return cell
+    }
+    
+    private func createPostCell(for row: Int, indexPath: IndexPath) -> UITableViewCell {
+        guard let cell = tableView.dequeueReusableCell(withIdentifier: "\(PostTableViewCell.self)", for: indexPath) as? PostTableViewCell else { return UITableViewCell() }
+       
+        let cellViewModel = viewModel.homeCellViewModel[row]
+        cell.viewModel = cellViewModel
+        cellViewModel.likeTapped = { [weak self] liked in
+            guard let _ = self else { return }
+            if liked {
+                cell.liked()
+            } else {
+                cell.disliked()
+            }
         }
+        cellViewModel.userNameTapped = { [weak self] in
+            guard let self = self else { return }
+            self.viewModel.goToUserDetailPage(row: row)
+        }
+        return cell
+    }
+    
+    @objc private func clearCache() {
+        viewModel.clearImageCache()
     }
 
 }

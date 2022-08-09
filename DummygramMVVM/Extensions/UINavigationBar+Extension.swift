@@ -11,21 +11,18 @@ extension UINavigationBar {
     func useDGLargeTitle() {
         self.prefersLargeTitles = true
         self.titleTextAttributes = [
-            .foregroundColor : UIColor.black,
-            .font : UIFont(name: "CircularStd-Bold", size: 18)!
+            .font : UIFont(name: "CircularStd-Bold", size: 18)!,
         ]
         self.largeTitleTextAttributes = [
-            .foregroundColor : UIColor.black,
             .font : UIFont(name: "CircularStd-Bold", size: 32)!,
         ]
-        self.tintColor = .black
+        self.tintColor = .label
     }
     
     func useDGTitle() {
         self.titleTextAttributes = [
-            .foregroundColor : UIColor.black,
             .font : UIFont(name: "CircularStd-Bold", size: 18)!
         ]
-        self.tintColor = .black
+        self.tintColor = .label
     }
 }

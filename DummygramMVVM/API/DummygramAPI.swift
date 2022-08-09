@@ -77,4 +77,48 @@ struct DummygramAPI {
                 }
             }
     }
+    
+    func getUserDetail(
+        _ userId: String,
+        _ completion: @escaping (DGUserLongResponse?, AFError?) -> Void
+    ) {
+        let headers: HTTPHeaders = ["app-id" : appId]
+        AF.request(
+            baseUrl + "user/\(userId)",
+            method: .get,
+            headers: headers
+        )
+            .validate()
+            .responseDecodable(of: DGUserLongResponse.self) { response in
+                switch response.result {
+                case let .success(data):
+                    completion(data, nil)
+                case let .failure(error):
+                    completion(nil, error)
+                    print(error)
+                }
+            }
+    }
+    
+    func getUserPosts(
+        _ userId: String,
+        _ completion: @escaping (DGDataResponse<DGPostResponse>?, AFError?) -> Void
+    ) {
+        let headers: HTTPHeaders = ["app-id" : appId]
+        AF.request(
+            baseUrl + "user/\(userId)/post",
+            method: .get,
+            headers: headers
+        )
+            .validate()
+            .responseDecodable(of: DGDataResponse<DGPostResponse>.self) { response in
+                switch response.result {
+                case let .success(data):
+                    completion(data, nil)
+                case let .failure(error):
+                    completion(nil, error)
+                    print(error)
+                }
+            }
+    }
 }

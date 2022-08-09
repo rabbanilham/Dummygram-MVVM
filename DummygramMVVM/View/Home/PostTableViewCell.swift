@@ -8,7 +8,7 @@
 import UIKit
 import Kingfisher
 
-final class HomeTableViewCell: UITableViewCell {
+final class PostTableViewCell: UITableViewCell {
     
     var containerView: UIView = {
         let view = UIView()
@@ -35,6 +35,7 @@ final class HomeTableViewCell: UITableViewCell {
     var userImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.isUserInteractionEnabled = true
         imageView.clipsToBounds = true
         imageView.contentMode = .scaleAspectFill
         imageView.layer.cornerRadius = 18
@@ -45,13 +46,14 @@ final class HomeTableViewCell: UITableViewCell {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.useAppFont(weight: .medium, size: UIFont.labelFontSize)
+        label.isUserInteractionEnabled = true
         return label
     }()
     
     var captionLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.useAppFont(weight: .book, size: 14)
+        label.useAppFont(weight: .book, size: 16)
         label.numberOfLines = 0
         return label
     }()
@@ -65,7 +67,7 @@ final class HomeTableViewCell: UITableViewCell {
         blurEffectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(blurEffectView)
         view.clipsToBounds = true
-        view.layer.cornerRadius = 18
+        view.layer.cornerRadius = 24
         return view
     }()
     
@@ -95,10 +97,19 @@ final class HomeTableViewCell: UITableViewCell {
         return imageView
     }()
     
+    var postDateLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.useAppFont(weight: .book, size: 12)
+        label.textColor = .secondaryLabel
+        label.numberOfLines = 0
+        return label
+    }()
+    
     var onLikeButtonTap: (() -> Void)?
     var onCommentButtonTap: (() -> Void)?
     
-    var viewModel: HomeCellViewModel? {
+    var viewModel: PostCellViewModel? {
         didSet {
             if let string = viewModel?.photo, let url = URL(string: string) {
                 photoImageView.kf.indicatorType = .activity
@@ -109,6 +120,7 @@ final class HomeTableViewCell: UITableViewCell {
                 userImageView.kf.setImage(with: url, options: [.transition(.fade(0.2))])
             }
             userNameLabel.text = viewModel?.userName
+            postDateLabel.text = (viewModel?.publishDate.convertToDateInterval() ?? "") + " ago"
             captionLabel.text = viewModel?.caption
             if let likes = viewModel?.likeCount {
                 likeCountLabel.text = "\(likes)"
@@ -136,7 +148,7 @@ final class HomeTableViewCell: UITableViewCell {
     private func defineLayout() {
         selectionStyle = .none
         contentView.addSubview(containerView)
-        containerView.addSubviews(userImageView, photoImageView, blurView, userNameLabel, captionLabel)
+        containerView.addSubviews(userImageView, photoImageView, blurView, userNameLabel, postDateLabel, captionLabel)
         blurView.addSubviews(likeButton, likeCountLabel, commentButton)
         let margin = contentView.layoutMarginsGuide
         NSLayoutConstraint.activate([
@@ -159,7 +171,10 @@ final class HomeTableViewCell: UITableViewCell {
             
             userNameLabel.centerYAnchor.constraint(equalTo: userImageView.centerYAnchor),
             userNameLabel.leadingAnchor.constraint(equalTo: userImageView.trailingAnchor, constant: 8),
-            userNameLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            userNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: postDateLabel.leadingAnchor, constant: -8),
+            
+            postDateLabel.centerYAnchor.constraint(equalTo: userNameLabel.centerYAnchor),
+            postDateLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             
             captionLabel.topAnchor.constraint(equalTo: userImageView.bottomAnchor, constant: 8),
             captionLabel.leadingAnchor.constraint(equalTo: photoImageView.leadingAnchor, constant: 8),
@@ -168,30 +183,39 @@ final class HomeTableViewCell: UITableViewCell {
             
             blurView.bottomAnchor.constraint(equalTo: photoImageView.bottomAnchor, constant: -8),
             blurView.trailingAnchor.constraint(equalTo: photoImageView.trailingAnchor, constant: -8),
-            blurView.heightAnchor.constraint(equalToConstant: 36),
+            blurView.heightAnchor.constraint(equalToConstant: 48),
             blurView.widthAnchor.constraint(greaterThanOrEqualToConstant: 10),
             
             likeButton.centerYAnchor.constraint(equalTo: blurView.centerYAnchor),
             likeButton.leadingAnchor.constraint(equalTo: blurView.leadingAnchor, constant: 8),
             likeButton.trailingAnchor.constraint(equalTo: likeCountLabel.leadingAnchor, constant: -4),
-            likeButton.heightAnchor.constraint(equalToConstant: 20),
+            likeButton.heightAnchor.constraint(equalToConstant: 28),
             likeButton.widthAnchor.constraint(equalTo: likeButton.heightAnchor),
             
             likeCountLabel.centerYAnchor.constraint(equalTo: likeButton.centerYAnchor),
             likeCountLabel.trailingAnchor.constraint(equalTo: commentButton.leadingAnchor, constant: -16),
+            likeCountLabel.widthAnchor.constraint(equalTo: likeCountLabel.widthAnchor, constant: 2),
             
             commentButton.centerYAnchor.constraint(equalTo: blurView.centerYAnchor),
             commentButton.trailingAnchor.constraint(equalTo: blurView.trailingAnchor, constant: -8),
-            commentButton.heightAnchor.constraint(equalToConstant: 20),
+            commentButton.heightAnchor.constraint(equalToConstant: 28),
             commentButton.widthAnchor.constraint(equalTo: commentButton.heightAnchor),
         ])
     }
     
     private func setupButtonRecognizers() {
+        let userImageTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(userNameTapped))
+        let userNameTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(userNameTapped))
         let likeTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(likeButtonTapped))
         let commentTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(commentButtonTapped))
+        userImageView.addGestureRecognizer(userImageTapRecognizer)
+        userNameLabel.addGestureRecognizer(userNameTapRecognizer)
         likeButton.addGestureRecognizer(likeTapRecognizer)
         commentButton.addGestureRecognizer(commentTapRecognizer)
+    }
+    
+    @objc private func userNameTapped() {
+        self.viewModel?.tapUserName()
     }
     
     @objc private func likeButtonTapped() {
@@ -200,6 +224,22 @@ final class HomeTableViewCell: UITableViewCell {
     
     @objc private func commentButtonTapped() {
         self.onCommentButtonTap?()
+    }
+    
+    func liked() {
+        if let likesCount = viewModel?.likeCount {
+            likeCountLabel.text = "\(likesCount)"
+            layoutSubviews()
+        }
+        likeButton.image = UIImage(systemName: "heart.fill")?.withTintColor(.systemRed, renderingMode: .alwaysOriginal)
+    }
+    
+    func disliked() {
+        if let likesCount = viewModel?.likeCount {
+            likeCountLabel.text = "\(likesCount)"
+            layoutSubviews()
+        }
+        likeButton.image = UIImage(systemName: "heart")?.withTintColor(.label, renderingMode: .alwaysOriginal)
     }
     
 }
